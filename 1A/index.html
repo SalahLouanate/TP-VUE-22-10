@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Application de suivi du budget personnel d'un étudiant."
+    />
+    <title>Budget étudiant</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background-color: #f2f2f2;
+        color: #222;
+        margin: 20px;
+      }
+
+      [v-cloak] {
+        display: none;
+      }
+
+      .page {
+        max-width: 800px;
+        margin: 0 auto;
+      }
+
+      .page-header {
+        margin-bottom: 20px;
+      }
+
+      h1 {
+        color: #26734d;
+      }
+
+      .intro,
+      .eyebrow,
+      .expense-count,
+      .expense-meta {
+        color: #666;
+      }
+
+      .card {
+        background-color: white;
+        border: 1px solid #ccc;
+        padding: 15px;
+        margin-bottom: 15px;
+      }
+
+      .eyebrow {
+        margin-bottom: 5px;
+      }
+
+      .budget-control,
+      .expense-form label {
+        display: block;
+        margin-bottom: 10px;
+      }
+
+      input,
+      select {
+        padding: 6px;
+        margin-top: 4px;
+      }
+
+      .expense-form input,
+      .expense-form select {
+        display: block;
+        width: 100%;
+        max-width: 300px;
+      }
+
+      .budget-total {
+        margin: 10px 0;
+      }
+
+      .budget-alert {
+        padding: 10px;
+        margin: 10px 0;
+      }
+
+      .alert-ok {
+        background-color: #dff0d8;
+      }
+
+      .alert-warning {
+        background-color: #fcf8e3;
+      }
+
+      .alert-danger {
+        background-color: #f2dede;
+      }
+
+      .summary-metrics div {
+        margin-top: 8px;
+      }
+
+      .summary-metrics strong {
+        margin-left: 8px;
+      }
+
+      .button {
+        padding: 7px 10px;
+        margin: 3px;
+        cursor: pointer;
+      }
+
+      .button-primary,
+      .filter-button.active {
+        color: white;
+        background-color: #26734d;
+      }
+
+      .expense-list,
+      .category-stats ul {
+        padding-left: 20px;
+      }
+
+      .expense-item {
+        padding: 8px 0;
+        border-bottom: 1px solid #ddd;
+      }
+
+      .expense-info > div,
+      .expense-actions {
+        margin: 4px 0;
+      }
+
+      .expense-meta {
+        display: block;
+        font-size: 14px;
+      }
+
+      .category-dot {
+        display: none;
+      }
+
+      .empty-state {
+        padding: 10px;
+      }
+
+      .list-total {
+        margin-top: 12px;
+        padding-top: 10px;
+        border-top: 1px solid #ccc;
+      }
+
+      .category-stats li {
+        margin: 8px 0;
+      }
+
+      footer {
+        margin-top: 20px;
+        color: #666;
+      }
+    </style>
+  </head>
+  <body>
+    <main id="app" class="page" v-cloak>
+      <header class="page-header">
+        <div>
+          <h1>Mon budget étudiant</h1>
+          <p class="intro">Suivez vos dépenses et gardez le contrôle de votre budget mensuel.</p>
+        </div>
+        <div class="budget-control">
+          <label for="budget">Budget mensuel (MAD)</label>
+          <input id="budget" v-model.number="budgetMensuel" type="number" min="0" step="50" />
+        </div>
+      </header>
+
+      <section class="card" aria-labelledby="summary-title">
+        <div class="summary-heading">
+          <div><p class="eyebrow">Résumé du mois</p><h2 id="summary-title">Votre situation</h2></div>
+          <p class="budget-total">
+            <strong>{{ formaterMontant(totalGeneral) }}</strong>
+            <span>sur {{ formaterMontant(budgetMensuel || 0) }}</span>
+          </p>
+        </div>
+        <div v-if="totalGeneral < budgetMensuel * 0.8" class="budget-alert alert-ok" role="status">
+          Vous êtes dans les limites de votre budget.
+        </div><div v-else-if="totalGeneral <= budgetMensuel" class="budget-alert alert-warning" role="status">
+          Attention, vous avez utilisé au moins 80 % de votre budget.
+        </div><div v-else class="budget-alert alert-danger" role="status">
+          Budget dépassé ! Pensez à limiter vos dépenses.
+        </div>
+        <div class="summary-metrics">
+          <div><span>Dépenses affichées</span><strong>{{ formaterMontant(totalFiltre) }}</strong></div>
+          <div><span>Moyenne par dépense</span><strong>{{ formaterMontant(moyenneDepense) }}</strong></div>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="add-title">
+        <p class="eyebrow">Nouvelle transaction</p>
+        <h2 id="add-title">Ajouter une dépense</h2>
+        <form class="expense-form" @submit.prevent="ajouterDepense">
+          <label>Intitulé
+            <input v-model="nouvelleDepense.titre" type="text" placeholder="Ex. Courses de la semaine" maxlength="80" required />
+          </label>
+          <label>Montant (MAD)
+            <input v-model.number="nouvelleDepense.montant" type="number" min="0.01" step="0.01" placeholder="0,00" required />
+          </label>
+          <label>Catégorie
+            <select v-model="nouvelleDepense.categorie">
+              <option v-for="categorie in categories" :key="categorie" :value="categorie">{{ categorie }}</option>
+            </select>
+          </label>
+          <label>Date
+            <input v-model="nouvelleDepense.date" type="date" required />
+          </label>
+          <button class="button button-primary add-button" type="submit">Ajouter</button>
+        </form>
+      </section>
+
+      <section class="card" aria-labelledby="expenses-title">
+        <div class="section-heading">
+          <div><p class="eyebrow">Historique</p><h2 id="expenses-title">Mes dépenses</h2></div>
+          <span class="expense-count">{{ depensesFiltrees.length }} dépense{{ depensesFiltrees.length > 1 ? 's' : '' }}</span>
+        </div>
+        <div class="filters" aria-label="Filtrer par catégorie">
+          <button class="button filter-button" :class="{ active: filtreCategorie === 'toutes' }" type="button" @click="selectionnerCategorie('toutes')">Toutes</button>
+          <button v-for="categorie in categories" :key="categorie" class="button filter-button" :class="{ active: filtreCategorie === categorie }" type="button" @click="selectionnerCategorie(categorie)">{{ categorie }}</button>
+        </div>
+        <ul v-if="depensesFiltrees.length > 0" class="expense-list">
+          <li v-for="d in depensesAffichees" :key="d.id" class="expense-item">
+            <div class="expense-info">
+              <span class="category-dot" :class="'category-' + categories.indexOf(d.categorie)"></span>
+              <div><strong>{{ d.titre }}</strong><span class="expense-meta">{{ d.categorie }} · {{ formaterDate(d.date) }}</span></div>
+            </div>
+            <div class="expense-actions">
+              <strong class="expense-amount">{{ formaterMontant(d.montant) }}</strong>
+              <button class="button button-delete" type="button" :aria-label="'Supprimer ' + d.titre" @click="supprimerDepense(d)">Supprimer</button>
+            </div>
+          </li>
+        </ul>
+        <p v-else class="empty-state">Aucune dépense pour cette sélection. Ajoutez-en une ou choisissez une autre catégorie.</p>
+        <div class="list-total"><span>Total de la sélection</span><strong>{{ formaterMontant(totalFiltre) }}</strong></div>
+      </section>
+
+      <section>
+        <button class="button stats-toggle" type="button" :aria-expanded="afficherStats" @click="afficherStats = !afficherStats">
+          {{ afficherStats ? 'Masquer' : 'Afficher' }} le détail par catégorie
+        </button>
+        <div v-show="afficherStats" class="card category-stats">
+          <h2>Dépenses par catégorie</h2>
+          <ul>
+            <li v-for="categorie in categories" :key="categorie">
+              <span>{{ categorie }}</span><strong>{{ formaterMontant(totalCategorie(categorie)) }}</strong>
+            </li>
+          </ul>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const { createApp } = Vue
+
+      function dateDuJour() {
+        const maintenant = new Date()
+        const decalage = maintenant.getTimezoneOffset() * 60_000
+        return new Date(maintenant.getTime() - decalage).toISOString().slice(0, 10)
+      }
+
+      createApp({
+        data() {
+          return {
+            categories: ['Alimentation', 'Transport', 'Logement', 'Loisirs', 'Autre'],
+            depenses: [],
+            filtreCategorie: 'toutes',
+            afficherStats: false,
+            budgetMensuel: 2000,
+            prochaineId: 1,
+            nouvelleDepense: {
+              titre: '',
+              montant: null,
+              categorie: 'Alimentation',
+              date: dateDuJour(),
+            },
+          }
+        },
+        computed: {
+          depensesFiltrees() {
+            if (this.filtreCategorie === 'toutes') return this.depenses
+            return this.depenses.filter((depense) => depense.categorie === this.filtreCategorie)
+          },
+          depensesAffichees() {
+            const resultat = []
+            for (const depense of this.depensesFiltrees) {
+              let position = 0
+              while (position < resultat.length && resultat[position].date >= depense.date) position++
+              resultat.splice(position, 0, depense)
+            }
+            return resultat
+          },
+          totalFiltre() {
+            return this.depensesFiltrees.reduce((total, depense) => total + depense.montant, 0)
+          },
+          totalGeneral() {
+            return this.depenses.reduce((total, depense) => total + depense.montant, 0)
+          },
+          moyenneDepense() {
+            if (this.depensesFiltrees.length === 0) return 0
+            return this.totalFiltre / this.depensesFiltrees.length
+          },
+        },
+        methods: {
+          selectionnerCategorie(categorie) {
+            this.filtreCategorie = categorie
+          },
+          totalCategorie(categorie) {
+            return this.depenses
+              .filter((depense) => depense.categorie === categorie)
+              .reduce((total, depense) => total + depense.montant, 0)
+          },
+          ajouterDepense() {
+            const titre = this.nouvelleDepense.titre.trim()
+            const montant = Number(this.nouvelleDepense.montant)
+            if (!titre || !Number.isFinite(montant) || montant <= 0) return
+
+            this.depenses.push({
+              id: this.prochaineId++,
+              titre,
+              montant,
+              categorie: this.nouvelleDepense.categorie,
+              date: this.nouvelleDepense.date,
+            })
+            this.nouvelleDepense = {
+              titre: '',
+              montant: null,
+              categorie: this.categories[0],
+              date: dateDuJour(),
+            }
+          },
+          supprimerDepense(depense) {
+            this.depenses = this.depenses.filter((element) => element.id !== depense.id)
+          },
+          formaterMontant(montant) {
+            return new Intl.NumberFormat('fr-MA', {
+              style: 'currency',
+              currency: 'MAD',
+            }).format(montant)
+          },
+          formaterDate(date) {
+            return new Intl.DateTimeFormat('fr-FR', {
+              dateStyle: 'medium',
+              timeZone: 'UTC',
+            }).format(new Date(`${date}T00:00:00Z`))
+          },
+        },
+      }).mount('#app')
+    </script>
+  </body>
+</html>

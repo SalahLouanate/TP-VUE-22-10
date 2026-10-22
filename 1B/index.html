@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Stock de l'association étudiante</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background-color: #f2f2f2;
+        color: #222;
+        margin: 20px;
+      }
+
+      [v-cloak] {
+        display: none;
+      }
+
+      .page {
+        max-width: 850px;
+        margin: 0 auto;
+      }
+
+      h1 {
+        color: #26734d;
+      }
+
+      .intro,
+      .article-details {
+        color: #666;
+      }
+
+      .card {
+        background-color: white;
+        border: 1px solid #ccc;
+        padding: 15px;
+        margin-bottom: 15px;
+      }
+
+      .alert-global {
+        padding: 10px;
+        background-color: #f2dede;
+      }
+
+      label {
+        display: block;
+        margin: 10px 0;
+      }
+
+      input,
+      select {
+        padding: 6px;
+        margin: 4px;
+      }
+
+      .button {
+        padding: 7px 10px;
+        margin: 3px;
+        cursor: pointer;
+      }
+
+      .button-primary,
+      .filter-button.active {
+        color: white;
+        background-color: #26734d;
+      }
+
+      .search-form input {
+        min-width: 220px;
+      }
+
+      .article {
+        padding: 12px 0;
+        border-bottom: 1px solid #ddd;
+      }
+
+      .badge {
+        display: inline-block;
+        padding: 4px 7px;
+        margin-left: 8px;
+      }
+
+      .badge-out {
+        color: #8a1f1f;
+        background-color: #f2dede;
+      }
+
+      .badge-low {
+        color: #805b00;
+        background-color: #fcf8e3;
+      }
+
+      .badge-ok {
+        color: #27632a;
+        background-color: #dff0d8;
+      }
+
+      .article-details {
+        padding: 8px;
+        background-color: #f7f7f7;
+      }
+
+      .article-details p {
+        margin: 5px 0;
+      }
+
+      .empty-message {
+        padding: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <main id="app" class="page" v-cloak>
+      <div v-if="nombreRupture > 0" class="alert-global" role="alert">
+        Attention : {{ nombreRupture }} article{{ nombreRupture > 1 ? 's sont' : ' est' }} en rupture de stock.
+      </div>
+
+      <header>
+        <h1>Stock de l'association étudiante</h1>
+        <p class="intro">Consultez les articles, vérifiez les quantités et gérez le stock de la buvette.</p>
+      </header>
+
+      <section class="card">
+        <h2>Résumé du stock</h2>
+        <p>Valeur totale : <strong>{{ formaterPrix(valeurTotaleStock) }}</strong></p>
+        <p>Articles en rupture : <strong>{{ nombreRupture }}</strong></p>
+      </section>
+
+      <section class="card">
+        <h2>Rechercher un article</h2>
+        <div class="search-form">
+          <label for="recherche">Nom de l'article</label>
+          <input id="recherche" v-model="rechercheTexte" type="search" placeholder="Rechercher..." />
+
+          <label for="categorie">Catégorie</label>
+          <select id="categorie" v-model="filtreCategorie">
+            <option value="toutes">Toutes les catégories</option>
+            <option v-for="categorie in categories" :key="categorie" :value="categorie">
+              {{ categorie }}
+            </option>
+          </select>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Liste des articles</h2>
+        <p v-if="articlesFiltres.length === 0" class="empty-message">
+          Aucun article trouvé.
+        </p>
+
+        <div v-for="article in articlesFiltres" :key="article.id" class="article">
+          <h3>
+            {{ article.nom }}
+            <span v-if="article.quantite === 0" class="badge badge-out">Rupture</span>
+            <span v-else-if="article.quantite <= article.seuilAlerte" class="badge badge-low">Stock faible</span>
+            <span v-else class="badge badge-ok">Ok</span>
+          </h3>
+          <p>Catégorie : {{ article.categorie }}</p>
+          <p>Quantité en stock : <strong>{{ article.quantite }}</strong></p>
+          <p>Prix unitaire : {{ formaterPrix(article.prixUnitaire) }}</p>
+
+          <button class="button" type="button" @click="decrementer(article)">-</button>
+          <button class="button" type="button" @click="incrementer(article)">+</button>
+          <button class="button" type="button" @click="toggleDetail(article)">
+            {{ articleDetailId === article.id ? 'Masquer' : 'Détails' }}
+          </button>
+          <button class="button" type="button" @click="articleReapproId = articleReapproId === article.id ? null : article.id">
+            Réapprovisionner
+          </button>
+          <button class="button" type="button" @click="supprimerArticle(article)">Supprimer</button>
+
+          <div v-show="articleDetailId === article.id" class="article-details">
+            <p>Nom : {{ article.nom }}</p>
+            <p>Catégorie : {{ article.categorie }}</p>
+            <p>Prix unitaire : {{ formaterPrix(article.prixUnitaire) }}</p>
+            <p>Seuil d'alerte : {{ article.seuilAlerte }}</p>
+          </div>
+
+          <form
+            v-if="articleReapproId === article.id"
+            class="article-details"
+            @submit.prevent="reapprovisionner(article)"
+          >
+            <label :for="'reappro-' + article.id">Quantité à ajouter</label>
+            <input
+              :id="'reappro-' + article.id"
+              v-model.number="quantiteReappro"
+              type="number"
+              min="1"
+              step="1"
+              required
+            />
+            <button class="button button-primary" type="submit">Valider</button>
+          </form>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Ajouter un article</h2>
+        <form @submit.prevent="ajouterArticle">
+          <label>
+            Nom
+            <input v-model="nouvelArticle.nom" type="text" maxlength="60" required />
+          </label>
+          <label>
+            Catégorie
+            <select v-model="nouvelArticle.categorie" required>
+              <option v-for="categorie in categories" :key="categorie" :value="categorie">
+                {{ categorie }}
+              </option>
+            </select>
+          </label>
+          <label>
+            Quantité
+            <input v-model.number="nouvelArticle.quantite" type="number" min="0" step="1" required />
+          </label>
+          <label>
+            Prix unitaire (MAD)
+            <input v-model.number="nouvelArticle.prixUnitaire" type="number" min="0" step="0.01" required />
+          </label>
+          <label>
+            Seuil d'alerte
+            <input v-model.number="nouvelArticle.seuilAlerte" type="number" min="0" step="1" required />
+          </label>
+          <button class="button button-primary" type="submit">Ajouter l'article</button>
+        </form>
+      </section>
+    </main>
+
+    <script>
+      const { createApp } = Vue
+
+      createApp({
+        data() {
+          return {
+            categories: ['Boissons', 'Nourriture', 'Fournitures'],
+            articles: [
+              { id: 1, nom: 'Eau minérale', categorie: 'Boissons', quantite: 12, prixUnitaire: 5, seuilAlerte: 5 },
+              { id: 2, nom: 'Jus d’orange', categorie: 'Boissons', quantite: 4, prixUnitaire: 8, seuilAlerte: 5 },
+              { id: 3, nom: 'Sandwich', categorie: 'Nourriture', quantite: 0, prixUnitaire: 15, seuilAlerte: 3 },
+              { id: 4, nom: 'Cahier', categorie: 'Fournitures', quantite: 8, prixUnitaire: 12, seuilAlerte: 2 },
+            ],
+            rechercheTexte: '',
+            filtreCategorie: 'toutes',
+            articleDetailId: null,
+            articleReapproId: null,
+            quantiteReappro: 1,
+            prochainId: 5,
+            nouvelArticle: {
+              nom: '',
+              categorie: 'Boissons',
+              quantite: 0,
+              prixUnitaire: 0,
+              seuilAlerte: 5,
+            },
+          }
+        },
+        computed: {
+          articlesFiltres() {
+            const recherche = this.rechercheTexte.trim().toLowerCase()
+
+            return this.articles.filter((article) => {
+              const nomCorrespond = article.nom.toLowerCase().includes(recherche)
+              const categorieCorrespond =
+                this.filtreCategorie === 'toutes' ||
+                article.categorie === this.filtreCategorie
+
+              return nomCorrespond && categorieCorrespond
+            })
+          },
+          valeurTotaleStock() {
+            return this.articles.reduce(
+              (total, article) => total + article.quantite * article.prixUnitaire,
+              0,
+            )
+          },
+          nombreRupture() {
+            return this.articles.filter((article) => article.quantite === 0).length
+          },
+        },
+        methods: {
+          incrementer(article) {
+            article.quantite++
+          },
+          decrementer(article) {
+            if (article.quantite > 0) {
+              article.quantite--
+            }
+          },
+          toggleDetail(article) {
+            if (this.articleDetailId === article.id) {
+              this.articleDetailId = null
+            } else {
+              this.articleDetailId = article.id
+            }
+          },
+          supprimerArticle(article) {
+            this.articles = this.articles.filter((element) => element.id !== article.id)
+
+            if (this.articleDetailId === article.id) {
+              this.articleDetailId = null
+            }
+
+            if (this.articleReapproId === article.id) {
+              this.articleReapproId = null
+            }
+          },
+          ajouterArticle() {
+            const nom = this.nouvelArticle.nom.trim()
+            const quantite = Number(this.nouvelArticle.quantite)
+            const prixUnitaire = Number(this.nouvelArticle.prixUnitaire)
+            const seuilAlerte = Number(this.nouvelArticle.seuilAlerte)
+
+            if (
+              !nom ||
+              !Number.isInteger(quantite) ||
+              quantite < 0 ||
+              !Number.isFinite(prixUnitaire) ||
+              prixUnitaire < 0 ||
+              !Number.isInteger(seuilAlerte) ||
+              seuilAlerte < 0
+            ) {
+              return
+            }
+
+            this.articles.push({
+              id: this.prochainId++,
+              nom,
+              categorie: this.nouvelArticle.categorie,
+              quantite,
+              prixUnitaire,
+              seuilAlerte,
+            })
+
+            this.nouvelArticle = {
+              nom: '',
+              categorie: this.categories[0],
+              quantite: 0,
+              prixUnitaire: 0,
+              seuilAlerte: 5,
+            }
+          },
+          reapprovisionner(article) {
+            const quantite = Number(this.quantiteReappro)
+            if (!Number.isInteger(quantite) || quantite < 1) return
+
+            article.quantite += quantite
+            this.articleReapproId = null
+            this.quantiteReappro = 1
+          },
+          formaterPrix(prix) {
+            return new Intl.NumberFormat('fr-MA', {
+              style: 'currency',
+              currency: 'MAD',
+            }).format(prix)
+          },
+        },
+      }).mount('#app')
+    </script>
+  </body>
+</html>

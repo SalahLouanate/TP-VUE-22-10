@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TP3 - Gestion de Tâches</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.3.4/vue.global.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Styles de base pour des transitions fluides */
+        .task-enter-active, .task-leave-active {
+            transition: all 0.3s ease;
+        }
+        .task-enter-from, .task-leave-to {
+            opacity: 0;
+            transform: translateX(30px);
+        }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen text-slate-800 font-sans p-6 md:p-12">
+
+    <div id="app" class="max-w-3xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden">
+        
+        <!-- En-tête -->
+        <header class="bg-indigo-600 p-6 text-white flex justify-between items-center">
+            <div>
+                <h1 class="text-2xl font-bold">Ma Liste de Tâches</h1>
+                <p class="text-indigo-200 text-sm mt-1">TP3 - Vue.js 3</p>
+            </div>
+            <!-- Affichage de la computed property pour le total des tâches -->
+            <div class="bg-indigo-800/50 px-4 py-2 rounded-lg text-center backdrop-blur-sm shadow-inner">
+                <span class="block text-2xl font-black">{{ totalTasks }}</span>
+                <span class="text-xs uppercase tracking-wider font-semibold">Tâches au total</span>
+            </div>
+        </header>
+
+        <div class="p-6 md:p-8">
+            <!-- Section de filtrage (Utilisation de v-bind pour les classes) -->
+            <div class="flex flex-wrap gap-3 mb-8 pb-6 border-b border-slate-100">
+                <span class="text-slate-400 font-medium py-2 mr-2">Filtres :</span>
+                
+                <button @click="setFilter('all')"
+                        :class="filter === 'all' ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'"
+                        class="px-4 py-2 rounded-lg font-medium transition-all duration-200 focus:outline-none">
+                    Toutes
+                </button>
+                
+                <button @click="setFilter('todo')"
+                        :class="filter === 'todo' ? 'bg-amber-500 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'"
+                        class="px-4 py-2 rounded-lg font-medium transition-all duration-200 focus:outline-none">
+                    À faire
+                </button>
+                
+                <button @click="setFilter('completed')"
+                        :class="filter === 'completed' ? 'bg-emerald-500 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'"
+                        class="px-4 py-2 rounded-lg font-medium transition-all duration-200 focus:outline-none">
+                    Terminées
+                </button>
+            </div>
+
+            <!-- Liste des tâches -->
+            <div class="space-y-4">
+                <!-- Message si la liste est vide -->
+                <div v-if="filteredTasks.length === 0" class="text-center py-10 text-slate-400 border-2 border-dashed border-slate-200 rounded-xl">
+                    <svg class="w-12 h-12 mx-auto mb-3 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
+                    <p>Aucune tâche ne correspond à ce filtre.</p>
+                </div>
+
+                <!-- Boucle v-for pour afficher les tâches -->
+                <transition-group name="task">
+                    <div v-for="task in filteredTasks" :key="task.id" 
+                         :class="task.completed ? 'bg-slate-50 border-slate-200' : 'bg-white border-indigo-100 shadow-sm hover:shadow-md'"
+                         class="border rounded-xl p-5 transition-all duration-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 group">
+                        
+                        <!-- Détails de la tâche -->
+                        <div class="flex-1">
+                            <div class="flex items-center gap-3 mb-1">
+                                <!-- Badge d'état -->
+                                <span v-if="task.completed" class="bg-emerald-100 text-emerald-700 text-xs font-bold px-2 py-1 rounded-md uppercase">Terminée</span>
+                                <span v-else class="bg-amber-100 text-amber-700 text-xs font-bold px-2 py-1 rounded-md uppercase">À faire</span>
+                                
+                                <h3 :class="task.completed ? 'text-slate-500 line-through' : 'text-slate-800'" class="text-lg font-bold">
+                                    {{ task.title }}
+                                </h3>
+                            </div>
+                            <p :class="task.completed ? 'text-slate-400' : 'text-slate-600'" class="text-sm mt-2">
+                                {{ task.description }}
+                            </p>
+                        </div>
+
+                        <!-- Bouton d'action (utilisation de v-show) -->
+                        <button v-show="!task.completed" 
+                                @click="markAsCompleted(task)"
+                                class="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-600 text-white font-medium py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2 focus:ring-4 focus:ring-emerald-200">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                            Terminer
+                        </button>
+                    </div>
+                </transition-group>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const app = Vue.createApp({
+            data() {
+                return {
+                    // Filtre actuel ('all', 'todo', 'completed')
+                    filter: 'all',
+                    // Données initialisées à partir de taskList.json
+                    tasks: [
+                        {
+                            "id": 1,
+                            "title": "Faire les courses",
+                            "description": "Acheter des légumes et du lait.",
+                            "completed": false
+                        },
+                        {
+                            "id": 2,
+                            "title": "Faire du sport",
+                            "description": "Courir pendant 30 minutes.",
+                            "completed": true
+                        },
+                        {
+                            "id": 3,
+                            "title": "Réviser pour l'examen",
+                            "description": "Relire le chapitre 5 du manuel.",
+                            "completed": false
+                        }
+                    ]
+                }
+            },
+            computed: {
+                // Computed property : calcule le nombre total de tâches
+                totalTasks() {
+                    return this.tasks.length;
+                },
+                // Computed property : filtre les tâches selon le bouton sélectionné
+                filteredTasks() {
+                    if (this.filter === 'todo') {
+                        return this.tasks.filter(task => !task.completed);
+                    } else if (this.filter === 'completed') {
+                        return this.tasks.filter(task => task.completed);
+                    }
+                    return this.tasks; // 'all'
+                }
+            },
+            methods: {
+                // Méthode : marque une tâche comme terminée
+                markAsCompleted(task) {
+                    task.completed = true;
+                },
+                // Méthode : change le filtre actif
+                setFilter(filterType) {
+                    this.filter = filterType;
+                }
+            }
+        });
+        app.mount('#app');
+    </script>
+</body>
+</html>

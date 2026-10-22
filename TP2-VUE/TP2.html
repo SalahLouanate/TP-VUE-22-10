@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <link rel="stylesheet" href="styles.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.3.4/vue.global.min.js"></script>
+    <script src="vue.js" defer></script>
+    <title>TP</title>
+</head>
+<body>
+    <div id="app">
+        <fieldset>
+            <legend>Filtre sur le nom</legend>
+            <input type="text" v-model="filtreNom" placeholder="Rechercher...">
+        </fieldset>
+        
+        <fieldset>
+            <legend>Options</legend>
+            Homme <input type="checkbox" v-model="homme">
+            Femme <input type="checkbox" v-model="femme">
+            Contacts <input type="checkbox" v-model="tel">
+            Photo
+            <select v-model="taille">
+                <option value="1">Petit</option>
+                <option value="2">Moyen</option>
+                <option value="3">Grand</option>
+            </select>
+            Mise en forme <input type="checkbox" v-model="mef">
+        </fieldset>
+
+        <div class="personne" :class="{ misEnForme: mef }" v-for="p in personnes" :key="p.login.uuid">
+            <div v-if="((homme && p.gender === 'male') || (femme && p.gender === 'female')) && (filtreNom === '' || p.name.last.toLowerCase().includes(filtreNom.toLowerCase()))">
+                
+                <img v-if="taille == 1" :src="p.picture.thumbnail" alt="Photo de profil">
+                <img v-if="taille == 2" :src="p.picture.medium" alt="Photo de profil">
+                <img v-if="taille == 3" :src="p.picture.large" alt="Photo de profil">
+                
+                <strong>{{p.name.title}} {{p.name.first}} {{p.name.last}}</strong><br>
+                <div>Pays : {{p.location.country}}</div>
+                
+               
+                <div v-if="tel" style="margin-top: 5px;">
+                      {{p.phone}} <br>
+                     <a :href="'mailto:' + p.email">{{p.email}}</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+   
+</body>
+</html>

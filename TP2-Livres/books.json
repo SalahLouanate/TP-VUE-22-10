@@ -1,0 +1,29 @@
+[
+  {
+    "id": 1,
+    "title": "Le Petit Prince",
+    "author": "Antoine de Saint-Exupéry",
+    "year": 1943,
+    "genre": "Roman",
+    "isFav": true,
+    "keywords": ["classique", "aventure"]
+  },
+  {
+    "id": 2,
+    "title": "Dune",
+    "author": "Frank Herbert",
+    "year": 1965,
+    "genre": "Science-fiction",
+    "isFav": false,
+    "keywords": ["espace", "science-fiction"]
+  },
+  {
+    "id": 3,
+    "title": "Le Nom de la rose",
+    "author": "Umberto Eco",
+    "year": 1980,
+    "genre": "Policier",
+    "isFav": false,
+    "keywords": ["enquête", "histoire"]
+  }
+]

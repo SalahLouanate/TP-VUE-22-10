@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Catalogue de livres</title>
+    <link rel="stylesheet" href="style.css" />
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <main id="app" class="page" v-cloak>
+      <header>
+        <h1>Catalogue de livres</h1>
+        <p>Ajoutez des livres, marquez vos favoris et gérez leurs mots-clés.</p>
+      </header>
+
+      <section class="panel">
+        <h2>Ajouter un livre</h2>
+        <form @submit.prevent="ajouterLivre">
+          <label>
+            Titre
+            <input v-model.trim="newBook.title" type="text" required />
+          </label>
+
+          <label>
+            Auteur
+            <input v-model.lazy="newBook.author" type="text" required />
+          </label>
+
+          <label>
+            Année
+            <input v-model.number="newBook.year" type="number" min="0" />
+          </label>
+
+          <label>
+            Genre
+            <select v-model="newBook.genre">
+              <option value="Roman">Roman</option>
+              <option value="Science-fiction">Science-fiction</option>
+              <option value="Policier">Policier</option>
+              <option value="Histoire">Histoire</option>
+              <option value="Autre">Autre</option>
+            </select>
+          </label>
+
+          <label class="checkbox-label">
+            <input v-model="newBook.isFav" type="checkbox" />
+            Ajouter aux favoris
+          </label>
+
+          <label>
+            Mot-clé
+            <input
+              v-model="nouveauMotCle"
+              type="text"
+              placeholder="Tapez un mot-clé puis appuyez sur Entrée"
+              @keydown.enter.prevent
+              @keyup.enter="ajouterMotCle"
+            />
+          </label>
+
+          <div v-if="newBook.keywords.length > 0" class="chips">
+            <span v-for="motCle in newBook.keywords" :key="motCle" class="chip">
+              {{ motCle }}
+              <button
+                type="button"
+                :aria-label="'Retirer le mot-clé ' + motCle"
+                @click="retirerMotCle(motCle)"
+              >×</button>
+            </span>
+          </div>
+
+          <button type="submit" :disabled="!formulaireValide">Ajouter</button>
+        </form>
+      </section>
+
+      <section class="panel">
+        <h2>Mes livres ({{ books.length }})</h2>
+        <p v-if="chargement">Chargement des livres...</p>
+        <p v-else-if="erreurChargement" class="error-message">{{ erreurChargement }}</p>
+        <p v-else-if="books.length === 0">Aucun livre dans le catalogue.</p>
+
+        <div
+          v-for="book in books"
+          :key="book.id"
+          class="book"
+          :class="{ favorite: book.isFav }"
+          @click="toggleFavori(book)"
+        >
+          <div class="book-heading">
+            <div>
+              <h3>{{ book.title }}</h3>
+              <p>{{ book.author }}<span v-if="book.year"> · {{ book.year }}</span></p>
+              <p>Genre : {{ book.genre }}</p>
+            </div>
+            <span class="favorite-label">{{ book.isFav ? '★ Favori' : '☆ Ajouter aux favoris' }}</span>
+          </div>
+
+          <div v-if="book.keywords && book.keywords.length > 0" class="chips">
+            <span v-for="motCle in book.keywords" :key="motCle" class="chip">{{ motCle }}</span>
+          </div>
+
+          <button class="delete-button" type="button" @click.stop="supprimerLivre(book)">
+            Supprimer
+          </button>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>
